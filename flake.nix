@@ -34,71 +34,31 @@
         system:
         let
           pkgs = nixpkgs.legacyPackages.${system};
-          nixTask = import ./package.nix { inherit pkgs; };
-          taskfileV1 = mkTasks {
+          taskShell = mkTasks {
             inherit pkgs;
             taskfile = {
               version = "3";
-              tasks.show.cmds = [ ''test -f marker && read value && test "$value" = ok && printf 'v1\n' '' ];
+              silent = true;
+              tasks.show.cmds = [ ''test -f marker && read value && test "$value" = ok && printf 'passed\n' '' ];
             };
           };
-          taskfileV2 = mkTasks {
-            inherit pkgs;
-            taskfile = {
-              version = "3";
-              tasks.show.cmds = [ ''test -f marker && read value && test "$value" = ok && printf 'v2\n' '' ];
-            };
-          };
-          fakeNix = pkgs.writeShellScriptBin "nix" ''
-            case "$1" in
-              --option)
-                printf '{"path":"/nix/store/source-%s"}\n' "$NIX_TASK_TEST_VERSION"
-                ;;
-              build)
-                counter="$NIX_TASK_TEST_COUNTER-$NIX_TASK_TEST_VERSION"
-                if [[ -e "$counter" ]]; then
-                  printf 'unexpected rebuild for %s\n' "$NIX_TASK_TEST_VERSION" >&2
-                  exit 1
-                fi
-                : > "$counter"
-                case "$NIX_TASK_TEST_VERSION" in
-                  v1) result=${taskfileV1} ;;
-                  v2) result=${taskfileV2} ;;
-                  *) exit 1 ;;
-                esac
-                while [[ "$1" != --out-link ]]; do shift; done
-                ${pkgs.coreutils}/bin/ln -sfn "$result" "$2"
-                printf '%s\n' "$result"
-                ;;
-              *) exit 1 ;;
-            esac
-          '';
+          devShell = pkgs.mkShell { inputsFrom = [ taskShell ]; };
         in
         {
-          default = pkgs.runCommand "nix-task-check" { nativeBuildInputs = [ fakeNix ]; } ''
+          default = pkgs.runCommand "nix-task-check" { nativeBuildInputs = devShell.nativeBuildInputs; } ''
+            ${devShell.shellHook}
+
             mkdir project
             cd project
-            touch flake.nix marker
-            export XDG_CACHE_HOME="$PWD/cache"
-            export NIX_TASK_TEST_COUNTER="$PWD/build"
+            touch marker
+            output=$(printf 'ok\n' | nix-task show)
+            [[ "$output" == passed ]]
 
-            export NIX_TASK_TEST_VERSION=v1
-            output=$(printf 'ok\n' | ${nixTask}/bin/nix-task show)
-            [[ "$output" == *v1* ]]
-            output=$(printf 'ok\n' | ${nixTask}/bin/nix-task show)
-            [[ "$output" == *v1* ]]
-
-            export NIX_TASK_TEST_VERSION=v2
-            output=$(printf 'ok\n' | ${nixTask}/bin/nix-task show)
-            [[ "$output" == *v2* ]]
-            cd ..
-
-            mkdir no-flake
-            cd no-flake
-            if ${nixTask}/bin/nix-task >stdout 2>stderr; then
+            unset NIX_TASK_FILE
+            if nix-task >stdout 2>stderr; then
               exit 1
             fi
-            [[ "$(<stderr)" == *"no flake.nix found"* ]]
+            [[ "$(<stderr)" == *"NIX_TASK_FILE is not set"* ]]
 
             touch "$out"
           '';
