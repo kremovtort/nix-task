@@ -2,10 +2,7 @@
 
 [Go Task](https://taskfile.dev/)-backed task runners defined as Nix attribute sets.
 
-`mkTasks` generates an immutable `Taskfile.yml` in the Nix store. The
-`nix-task` command resolves the current `packages.<system>.tasks` output on each
-run and passes it to Go Task. Nix provides configuration and pinned tools; Go
-Task keeps its existing task graph, caching, watch, and status semantics.
+`mkTasks` generates an immutable `Taskfile.yml` in the Nix store. The `nix-task` command resolves the current `packages.<system>.tasks` output on each run and passes it to Go Task. Nix provides configuration and pinned tools; Go Task keeps its existing task graph, caching, watch, and status semantics.
 
 ## Usage
 
@@ -42,8 +39,7 @@ Task keeps its existing task graph, caching, watch, and status semantics.
 }
 ```
 
-Enter the development shell once, then edit and run tasks without re-entering
-it:
+Enter the development shell once, then edit and run tasks without re-entering it:
 
 ```console
 $ nix develop
@@ -58,17 +54,8 @@ $ nix run github:kremovtort/nix-task -- hello
 Hello, world!
 ```
 
-The `taskfile` value follows the Taskfile v3 schema directly. Nix string
-interpolation can put pinned package paths in commands, and those packages stay
-in the generated Taskfile's closure. `nix-task` caches the resulting store path
-under `$XDG_CACHE_HOME/nix-task` and invalidates it from Nix's archived flake
-graph. If that graph is unchanged, subsequent calls skip flake evaluation and
-reuse the GC-rooted Taskfile.
+The `taskfile` value follows the Taskfile v3 schema directly. Nix string interpolation can put pinned package paths in commands, and those packages stay in the generated Taskfile's closure. `nix-task` caches the resulting store path under `$XDG_CACHE_HOME/nix-task` and invalidates it from Nix's archived flake graph. If that graph is unchanged, subsequent calls skip flake evaluation and reuse the GC-rooted Taskfile.
 
-Tasks run from the directory where the runner is invoked. Relative task paths,
-including `dir`, `dotenv`, `sources`, and `generates`, therefore behave like a
-project-local Taskfile.
+Tasks run from the directory where the runner is invoked. Relative task paths, including `dir`, `dotenv`, `sources`, and `generates`, therefore behave like a project-local Taskfile.
 
-Relative `includes.*.taskfile` paths are the exception: Go Task resolves them
-from the generated Taskfile in the Nix store. Use an absolute generated store
-path for an included Taskfile, or compose the task attribute sets in Nix.
+Relative `includes.*.taskfile` paths are the exception: Go Task resolves them from the generated Taskfile in the Nix store. Use an absolute generated store path for an included Taskfile, or compose the task attribute sets in Nix.
