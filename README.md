@@ -2,9 +2,10 @@
 
 [Go Task](https://taskfile.dev/)-backed task runners defined as Nix attribute sets.
 
-`mkTasks` generates an immutable `Taskfile.yml` in the Nix store and wraps
-Go Task with that file. Nix provides configuration and pinned tools; Go Task
-keeps its existing task graph, caching, watch, and status semantics.
+`mkTasks` generates an immutable `Taskfile.yml` in the Nix store. The
+`nix-task` command resolves the current `packages.<system>.tasks` output on each
+run and passes it to Go Task. Nix provides configuration and pinned tools; Go
+Task keeps its existing task graph, caching, watch, and status semantics.
 
 ## Usage
 
@@ -13,6 +14,7 @@ keeps its existing task graph, caching, watch, and status semantics.
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     nix-task.url = "github:kremovtort/nix-task";
+    nix-task.inputs.nixpkgs.follows = "nixpkgs";
   };
 
   outputs =
@@ -22,7 +24,6 @@ keeps its existing task graph, caching, watch, and status semantics.
       pkgs = nixpkgs.legacyPackages.${system};
       tasks = nix-task.lib.mkTasks {
         inherit pkgs;
-        name = "task";
         taskfile = {
           version = "3";
           tasks.hello = {
@@ -35,22 +36,34 @@ keeps its existing task graph, caching, watch, and status semantics.
     {
       packages.${system}.tasks = tasks;
       devShells.${system}.default = pkgs.mkShell {
-        packages = [ tasks ];
+        packages = [ nix-task.packages.${system}.default ];
       };
     };
 }
 ```
 
+Enter the development shell once, then edit and run tasks without re-entering
+it:
+
+```console
+$ nix develop
+$ nix-task hello
+$ nix-task hello # Uses an updated task definition, if it changed.
+```
+
 Run without entering the development shell:
 
 ```console
-$ nix run .#tasks -- hello
+$ nix run github:kremovtort/nix-task -- hello
 Hello, world!
 ```
 
 The `taskfile` value follows the Taskfile v3 schema directly. Nix string
 interpolation can put pinned package paths in commands, and those packages stay
-in the runner's closure.
+in the generated Taskfile's closure. `nix-task` caches the resulting store path
+under `$XDG_CACHE_HOME/nix-task` and invalidates it from Nix's archived flake
+graph. If that graph is unchanged, subsequent calls skip flake evaluation and
+reuse the GC-rooted Taskfile.
 
 Tasks run from the directory where the runner is invoked. Relative task paths,
 including `dir`, `dotenv`, `sources`, and `generates`, therefore behave like a
