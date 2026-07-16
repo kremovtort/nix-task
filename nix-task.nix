@@ -1,13 +1,14 @@
-{
-  pkgs,
-  taskfile,
-}:
+{ pkgs }:
+args:
 let
+  taskfile = args // {
+    version = "3";
+  };
   generatedTaskfile = (pkgs.formats.yaml { }).generate "Taskfile.yml" taskfile;
-  nixTask = import ./package.nix { inherit pkgs; };
+  taskRunner = import ./package.nix { inherit pkgs; };
 in
 pkgs.mkShell {
-  packages = [ nixTask ];
+  packages = [ taskRunner ];
   shellHook = ''
     export NIX_TASK_FILE=${generatedTaskfile}
   '';

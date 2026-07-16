@@ -13,34 +13,22 @@
         "x86_64-linux"
       ];
       forAllSystems = nixpkgs.lib.genAttrs systems;
-      mkTasks = import ./nix-task.nix;
+      mkTasksFor = system: import ./nix-task.nix { pkgs = nixpkgs.legacyPackages.${system}; };
     in
     {
-      lib = { inherit mkTasks; };
+      lib = forAllSystems (system: {
+        mkTasks = mkTasksFor system;
+      });
 
       formatter = forAllSystems (system: nixpkgs.legacyPackages.${system}.nixfmt);
-
-      packages = forAllSystems (
-        system:
-        let
-          pkgs = nixpkgs.legacyPackages.${system};
-        in
-        {
-          default = import ./package.nix { inherit pkgs; };
-        }
-      );
 
       checks = forAllSystems (
         system:
         let
           pkgs = nixpkgs.legacyPackages.${system};
-          taskShell = mkTasks {
-            inherit pkgs;
-            taskfile = {
-              version = "3";
-              silent = true;
-              tasks.show.cmds = [ ''test -f marker && read value && test "$value" = ok && printf 'passed\n' '' ];
-            };
+          taskShell = (mkTasksFor system) {
+            silent = true;
+            tasks.show.cmds = [ ''test -f marker && read value && test "$value" = ok && printf 'passed\n' '' ];
           };
           devShell = pkgs.mkShell { inputsFrom = [ taskShell ]; };
         in
@@ -51,11 +39,11 @@
             mkdir project
             cd project
             touch marker
-            output=$(printf 'ok\n' | nix-task show)
+            output=$(printf 'ok\n' | task show)
             [[ "$output" == passed ]]
 
             unset NIX_TASK_FILE
-            if nix-task >stdout 2>stderr; then
+            if task >stdout 2>stderr; then
               exit 1
             fi
             [[ "$(<stderr)" == *"NIX_TASK_FILE is not set"* ]]
