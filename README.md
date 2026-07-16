@@ -2,7 +2,7 @@
 
 [Go Task](https://taskfile.dev/)-backed task runners defined as Nix attribute sets.
 
-`mkTaskRunner` generates an immutable `Taskfile.yml` in the Nix store and wraps
+`mkTasks` generates an immutable `Taskfile.yml` in the Nix store and wraps
 Go Task with that file. Nix provides configuration and pinned tools; Go Task
 keeps its existing task graph, caching, watch, and status semantics.
 
@@ -12,7 +12,7 @@ keeps its existing task graph, caching, watch, and status semantics.
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-    nix-task.url = "github:your-name/nix-task";
+    nix-task.url = "github:kremovtort/nix-task";
   };
 
   outputs =
@@ -20,7 +20,7 @@ keeps its existing task graph, caching, watch, and status semantics.
     let
       system = "aarch64-darwin";
       pkgs = nixpkgs.legacyPackages.${system};
-      tasks = nix-task.lib.mkTaskRunner {
+      tasks = nix-task.lib.mkTasks {
         inherit pkgs;
         name = "task";
         taskfile = {
@@ -34,10 +34,6 @@ keeps its existing task graph, caching, watch, and status semantics.
     in
     {
       packages.${system}.tasks = tasks;
-      apps.${system}.tasks = {
-        type = "app";
-        program = "${tasks}/bin/task";
-      };
       devShells.${system}.default = pkgs.mkShell {
         packages = [ tasks ];
       };
